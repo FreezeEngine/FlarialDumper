@@ -4,68 +4,106 @@
 #include <iterator>
 #include <libhat/Process.hpp>
 #include <libhat/Scanner.hpp>
+#include <nlohmann/json.hpp>
+#include <sstream>
+#include "src/Resolver/Resolvers/SignatureResolver/SignatureResolver.hpp"
+#include "src/Resolver/Resolvers/VtableResolver/VtableResolver.hpp"
 
-int main() {
-    std::string path;
-    std::cout << "Enter path to bds or client executable: " << std::endl;
-    std::getline(std::cin, path);
+using json = nlohmann::json;
 
-    std::cout << "Reading file..." << std::endl;
-    // Open the file
-    std::ifstream file(path, std::ios::binary);
+// Helper function to read configuration from JSON file
+json readConfigFile(const std::string& filePath) {
+    std::ifstream configFile(filePath);
+    if (!configFile.is_open()) {
+        std::cerr << "Error opening config file!" << std::endl;
+        exit(1);
+    }
+    json config;
+    configFile >> config;
+    return config;
+}
 
+// Helper function to output offset information to console and file
+void outputOffsetInfo(const std::string& name, int offset, const std::string& outputFormat, const std::string& outputFileName) {
+    std::ofstream outputFile(outputFileName, std::ios_base::app);
+    if (!outputFile.is_open()) {
+        std::cerr << "Error opening output file!" << std::endl;
+        return;
+    }
+    std::ofstream outputLogFile(outputFileName+".log", std::ios_base::app);
+    if (!outputLogFile.is_open()) {
+        std::cerr << "Error opening output log file!" << std::endl;
+        return;
+    }
+
+    std::string formattedOutput = outputFormat;
+    size_t pos = formattedOutput.find("%NAME%");
+    if (pos != std::string::npos)
+        formattedOutput.replace(pos, 6, name);
+    pos = formattedOutput.find("%OFFSET%");
+    if (pos != std::string::npos) {
+        std::stringstream stream;
+        stream << "0x" << std::hex << offset;
+        formattedOutput.replace(pos, 8, stream.str());
+    }
+    std::cout << name << ": " << "0x" << std::hex << offset << std::endl;
+    outputLogFile << name << ": " << "0x" << std::hex << offset << std::endl;
+    outputFile << formattedOutput << std::endl;
+
+    outputFile.close();
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <path_to_executable> <path_to_config_file> <output_file_name>" << std::endl;
+        return 1;
+    }
+
+    std::string executablePath = argv[1];
+    std::string configFilePath = argv[2];
+    std::string outputFileName = argv[3];
+
+    // Read executable file
+    std::ifstream file(executablePath, std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "Error opening file!" << std::endl;
         return 1;
     }
-
-    // Determine the size of the file
     file.seekg(0, std::ios::end);
     std::streampos fileSize = file.tellg();
     file.seekg(0, std::ios::beg);
-
-    if (fileSize < 0) {
-        std::cerr << "Error determining file size!" << std::endl;
-        return 1;
-    }
-
-    // Allocate memory
     std::vector<std::byte> data(fileSize);
-
-    // Read the contents of the file into memory
     file.read(reinterpret_cast<char*>(data.data()), fileSize);
-
-    if (!file) {
-        std::cerr << "Error reading file!" << std::endl;
-        return 1;
-    }
-
-    // Close the file
     file.close();
-
     std::byte* dataPtr = data.data();
-    std::size_t dataSize = data.size();
 
-    std::cout << "File read." << std::endl;
-    std::cout << "Size: " << dataSize << std::endl;
-    std::cout << "Searching..." << std::endl;
+    // Read configuration from JSON file
+    json config = readConfigFile(configFilePath);
 
-    auto module = hat::process::module_at(reinterpret_cast<uintptr_t>(dataPtr));
-    auto signature = "C4 20 5F C3 CC CC 8B 81 ? ? ? ? C3"; // Actor::getCategories
-    auto parsed_signature = hat::parse_signature(signature).value();
-    const auto result =  hat::find_pattern(parsed_signature, ".text", module);
-
-    if (result.has_result()) {
-        auto pointer = reinterpret_cast<uintptr_t>(result.get()) + 8;
-        auto offset = *reinterpret_cast<int*>(pointer);
-
-        std::cout << "Name: Actor::getCategories" << std::endl;
-        std::cout << "Address: 0x" << std::uppercase << std::hex << pointer << std::endl;
-        std::cout << "Offset: 0x" << std::uppercase << std::hex << offset << std::endl;
-        return 0;
-    } else {
-        std::cout << "Offset was not found!";
-        return 0;
+    // Create appropriate resolver and process each configuration object
+    for (const auto& obj : config) {
+        std::string name = obj["name"];
+        std::string signature = obj["sig"];
+        std::string outputFormat = obj.value("output", "%NAME%: %OFFSET%");
+        int offset = obj.value("offset", 3); // Default offset is 3
+        std::unique_ptr<Resolver> resolver;
+        if (obj.value("type", "sig") == "vtable") {
+            resolver = std::make_unique<VtableResolver>();
+        } else {
+            resolver = std::make_unique<SignatureResolver>();
+        }
+        int resolvedOffset = resolver->resolve(signature, dataPtr, offset);
+        if (resolvedOffset != -1) {
+            outputOffsetInfo(name, resolvedOffset, outputFormat, outputFileName);
+        } else {
+            std::ofstream outputFile("error_log.txt", std::ios_base::app);
+            if (!outputFile.is_open()) {
+                std::cerr << "Error opening output file!" << std::endl;
+                return 1;
+            }
+            outputFile << "Offset for " << name << " was not found!" << std::endl;
+            outputFile.close();
+        }
     }
 
     return 0;

@@ -13,5 +13,21 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(libhat)
 
-add_executable(FlarialDumper main.cpp)
-target_link_libraries(FlarialDumper PRIVATE libhat)
+FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.9.1
+)
+
+FetchContent_GetProperties(json)
+
+if(NOT json_POPULATED)
+    FetchContent_Populate(json)
+    add_library(nlohmann_json INTERFACE)
+    target_include_directories(nlohmann_json INTERFACE ${json_SOURCE_DIR}/include)
+endif()
+
+add_executable(FlarialDumper main.cpp
+        src/Resolver/Resolvers/VtableResolver/VtableResolver.cpp
+        src/Resolver/Resolvers/SignatureResolver/SignatureResolver.cpp)
+target_link_libraries(FlarialDumper PRIVATE libhat nlohmann_json)
