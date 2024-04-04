@@ -6,9 +6,13 @@
 #include <libhat/Scanner.hpp>
 
 int main() {
+    std::string path;
+    std::cout << "Enter path to bds or client executable: " << std::endl;
+    std::getline(std::cin, path);
+
     std::cout << "Reading file..." << std::endl;
     // Open the file
-    std::ifstream file(R"(L:\MC Bedrock Launcher\data\versions\cc2071ae-99fd-4112-b1e2-ff8ce34b9f6d\Minecraft.Windows.exe)", std::ios::binary);
+    std::ifstream file(path, std::ios::binary);
 
     if (!file.is_open()) {
         std::cerr << "Error opening file!" << std::endl;
