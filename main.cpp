@@ -1,13 +1,12 @@
+#include "src/Resolver/Resolvers/VtableResolver/VtableResolver.hpp"
+#include "src/Resolver/Resolvers/SignatureResolver/SignatureResolver.hpp"
+
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <iterator>
-#include <libhat/Process.hpp>
-#include <libhat/Scanner.hpp>
-#include <nlohmann/json.hpp>
 #include <sstream>
-#include "src/Resolver/Resolvers/SignatureResolver/SignatureResolver.hpp"
-#include "src/Resolver/Resolvers/VtableResolver/VtableResolver.hpp"
+#include <nlohmann/json.hpp>
+#include <libhat/Scanner.hpp>
 
 using json = nlohmann::json;
 
