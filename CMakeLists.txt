@@ -29,5 +29,6 @@ endif()
 
 add_executable(FlarialDumper main.cpp
         src/Resolver/Resolvers/VtableResolver/VtableResolver.cpp
-        src/Resolver/Resolvers/SignatureResolver/SignatureResolver.cpp)
+        src/Resolver/Resolvers/SignatureResolver/SignatureResolver.cpp
+        src/Utils/Utils.cpp)
 target_link_libraries(FlarialDumper PRIVATE libhat nlohmann_json)
