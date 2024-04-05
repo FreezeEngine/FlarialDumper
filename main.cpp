@@ -3,55 +3,13 @@
 #include <vector>
 #include <iterator>
 #include <libhat/Process.hpp>
-#include <libhat/Scanner.hpp>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include "src/Resolver/Resolvers/SignatureResolver/SignatureResolver.hpp"
 #include "src/Resolver/Resolvers/VtableResolver/VtableResolver.hpp"
+#include "src/Utils/Utils.hpp"
 
 using json = nlohmann::json;
-
-// Helper function to read configuration from JSON file
-json readConfigFile(const std::string& filePath) {
-    std::ifstream configFile(filePath);
-    if (!configFile.is_open()) {
-        std::cerr << "Error opening config file!" << std::endl;
-        exit(1);
-    }
-    json config;
-    configFile >> config;
-    return config;
-}
-
-// Helper function to output offset information to console and file
-void outputOffsetInfo(const std::string& name, int offset, const std::string& outputFormat, const std::string& outputFileName) {
-    std::ofstream outputFile(outputFileName, std::ios_base::app);
-    if (!outputFile.is_open()) {
-        std::cerr << "Error opening output file!" << std::endl;
-        return;
-    }
-    std::ofstream outputLogFile(outputFileName+".log", std::ios_base::app);
-    if (!outputLogFile.is_open()) {
-        std::cerr << "Error opening output log file!" << std::endl;
-        return;
-    }
-
-    std::string formattedOutput = outputFormat;
-    size_t pos = formattedOutput.find("%NAME%");
-    if (pos != std::string::npos)
-        formattedOutput.replace(pos, 6, name);
-    pos = formattedOutput.find("%OFFSET%");
-    if (pos != std::string::npos) {
-        std::stringstream stream;
-        stream << "0x" << std::hex << offset;
-        formattedOutput.replace(pos, 8, stream.str());
-    }
-    std::cout << name << ": " << "0x" << std::hex << offset << std::endl;
-    outputLogFile << name << ": " << "0x" << std::hex << offset << std::endl;
-    outputFile << formattedOutput << std::endl;
-
-    outputFile.close();
-}
 
 int main(int argc, char *argv[]) {
     if (argc != 4) {
@@ -78,7 +36,7 @@ int main(int argc, char *argv[]) {
     std::byte* dataPtr = data.data();
 
     // Read configuration from JSON file
-    json config = readConfigFile(configFilePath);
+    json config = Utils::readConfigFile(configFilePath);
 
     // Create appropriate resolver and process each configuration object
     for (const auto& obj : config) {
@@ -94,7 +52,7 @@ int main(int argc, char *argv[]) {
         }
         int resolvedOffset = resolver->resolve(signature, dataPtr, offset);
         if (resolvedOffset != -1) {
-            outputOffsetInfo(name, resolvedOffset, outputFormat, outputFileName);
+            Utils::outputOffsetInfo(name, resolvedOffset, outputFormat, outputFileName);
         } else {
             std::ofstream outputFile("error_log.txt", std::ios_base::app);
             if (!outputFile.is_open()) {
